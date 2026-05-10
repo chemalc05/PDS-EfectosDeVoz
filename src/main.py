@@ -3,6 +3,7 @@ import soundfile as sf
 import matplotlib.pyplot as plt
 from scipy import signal
 import time
+import effects
 
 def cargar_y_normalizar(ruta_archivo):
     """
@@ -49,4 +50,33 @@ def evaluar_efecto(original, procesado, fs, nombre_efecto, tiempo_ms):
     plt.show()
 
 if __name__ == "__main__":
-    # Este bloque
+    # 1. Rutas de los archivos
+    ruta_entrada = "/home/txema/Escritorio/PDS-EfectosDeVoz/audio/audio.wav" # Asegúrate de tener este audio en la carpeta
+    ruta_salida = "audio_modificado.wav"
+
+    print("Iniciando VoiceLab...")
+    try:
+        # Carga la señal (Esto corresponde al módulo de Ignacio)
+        audio_original, fs = cargar_y_normalizar(ruta_entrada)
+        print("Audio cargado y normalizado correctamente.")
+
+        # 2. APLICAR EFECTO Y VALIDAR TIEMPO (Tu parte)
+        # Puedes cambiar effects.radio por effects.robot, effects.eco, effects.Alvin...
+        nombre_del_efecto = "Efecto Radio Antigua"
+
+        start_time = time.time()
+
+        audio_procesado = effects.radio(audio_original, fs) # <-- Aplica el efecto aquí
+
+        end_time = time.time()
+        tiempo_ejecucion_ms = (end_time - start_time) * 1000
+
+        # 3. Guardar el resultado para poder escucharlo
+        guardar_audio(ruta_salida, audio_procesado, fs)
+        print(f"Audio procesado guardado con éxito en: {ruta_salida}")
+
+        # 4. EVALUACIÓN Y ESPECTROGRAMAS (Tu parte)
+        evaluar_efecto(audio_original, audio_procesado, fs, nombre_del_efecto, tiempo_ejecucion_ms)
+
+    except FileNotFoundError:
+        print(f"⚠️ Error: No se ha encontrado el archivo '{ruta_entrada}'. Por favor, pon un archivo .wav de prueba en la misma carpeta.")

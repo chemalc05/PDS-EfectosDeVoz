@@ -15,7 +15,7 @@ Efectos implementados
 
 '''
 import numpy as np
-from scipy.signal import resample
+from scipy.signal import resample ,butter, lfilter
 import soundfile as sf
 
 def reverb(signal, Fs, delay, decay):
@@ -85,3 +85,38 @@ def distortion(signal, gain= 2.0 , threshold= 0.8):
     y = signal * gain
     return np.clip(y,-threshold,threshold)
 
+
+def eco(signal, Fs, delay_sec=0.5, attenuation=0.6):
+    """
+    Añade un efecto de eco simple a la señal mediante un retardo temporal.
+    Cumple con el objetivo de retardos temporales con memoria.
+    """
+    delay_samples = int(delay_sec * Fs)
+    # Creamos un array más largo para que la "cola" del eco no se corte
+    y = np.zeros(len(signal) + delay_samples, dtype=np.float32)
+    y[:len(signal)] += signal
+    y[delay_samples:] += signal * attenuation
+    return y
+
+def radio(signal_in, Fs, lowcut=300.0, highcut=3000.0, order=5):
+    """
+    Aplica un filtro IIR pasa-banda para simular una radio antigua o megáfono.
+    Recorta los graves y los agudos extremos de la voz.
+    """
+    nyq = 0.5 * Fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = butter(order, [low, high], btype='band')
+    y = lfilter(b, a, signal_in)
+    return y
+
+def robot(signal_in, Fs, freq_mod=40.0):
+    """
+    Genera un efecto de voz metálica/robótica mediante Modulación en Amplitud (AM).
+    Multiplica la señal por una onda portadora de baja frecuencia.
+    """
+    t = np.arange(len(signal_in)) / Fs
+    # Señal portadora (sinusoide oscilando a freq_mod)
+    portadora = np.sin(2 * np.pi * freq_mod * t)
+    y = signal_in * portadora
+    return y
