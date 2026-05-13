@@ -1,0 +1,26 @@
+Aquí tenéis la hoja de ruta para marcar la diferencia:
+1. El "Core" Matemático (Para deslumbrar en la evaluación)
+
+El profesor se va a fijar con lupa en cómo manipuláis las señales. Aquí es donde podéis sacar músculo:
+
+    Pitch Shifting Real (Phase Vocoder): Como os comenté, usar resample para el efecto ardilla/monstruo cambia la velocidad del audio. Implementar un Phase Vocoder utilizando la Transformada Rápida de Fourier a Corto Plazo (STFT) y la STFT Inversa (ISTFT) os permitirá cambiar el tono de la voz sin alterar la duración del audio. Es matemáticamente complejo (hay que gestionar la fase de la señal), pero garantiza la matrícula de honor.
+
+    Reducción de Ruido (Sustracción Espectral): Implementad un filtro que elimine el ruido de fondo (como el siseo del micrófono). Consiste en calcular el espectro de un fragmento de "silencio" (solo ruido) y restárselo a la magnitud del espectro de toda la señal. Al mostrar esto en el espectrograma, el cambio visual es espectacular y demuestra un dominio absoluto del dominio frecuencial.
+
+    Procesamiento por Tramos (Overlap-Add): Ahora mismo cargáis todo el audio en la memoria de golpe. Los sistemas profesionales procesan el audio en pequeños bloques o frames (por ejemplo, ventanas de 1024 muestras) aplicando funciones ventana (como Hanning o Hamming). Implementar esto optimiza el consumo de RAM y es la antesala para el procesamiento en tiempo real.
+
+2. Arquitectura y Usabilidad (Para destacar como ingenieros)
+
+La interfaz gráfica con Tkinter está genial para un usuario estándar, pero podéis darle un enfoque mucho más técnico y versátil:
+
+    Interfaz de Línea de Comandos (CLI): Añadid soporte mediante la librería argparse para que el script pueda ejecutarse directamente desde la terminal (ej. python main.py --input audio.wav --effect robot --output final.wav). Disponer de una herramienta ágil que se pueda integrar en scripts bash o ejecutar de forma nativa desde un entorno de consola, sin depender de ventanas gráficas, da una imagen tremendamente profesional y eficiente.
+
+    Procesamiento por Lotes (Batch Processing): Permitid que el programa lea una carpeta entera llena de audios y les aplique el mismo efecto a todos de forma automatizada, guardándolos en otra carpeta.
+
+    Exportación de Reportes: En lugar de solo mostrar el espectrograma en pantalla, haced que el programa genere un archivo PDF o una imagen .png automáticamente con las gráficas de "Original vs Modificado" y el tiempo de ejecución.
+
+3. El Caso de Uso "Estrella"
+
+Para diferenciaros del otro grupo, podéis agrupar vuestros efectos para resolver un problema real y actual, más allá del entretenimiento:
+
+    Preset de "Anonimización de Voz": Podéis crear un modo específico pensado para la privacidad y la auditoría. Combinando un leve pitch shifting hacia graves, un ligero filtro pasa-banda y una pequeña distorsión, podéis crear un filtro que haga irreconocible la identidad original del locutor, protegiendo su identidad pero manteniendo el mensaje inteligible. Es un caso de uso muy potente en el ámbito de la ciberseguridad y el manejo de información sensible, lo que le dará a vuestra defensa oral un enfoque muy original y justificado.
