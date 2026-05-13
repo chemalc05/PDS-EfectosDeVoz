@@ -1,5 +1,6 @@
 import numpy as np
 import soundfile as sf
+import sounddevice as sd
 import matplotlib.pyplot as plt
 from scipy import signal
 import time
@@ -8,6 +9,8 @@ from tkinter import filedialog, messagebox, ttk
 import effects
 
 from IPython.display import Audio
+
+
 def cargar_y_normalizar(ruta_archivo):
     """
    DOCUMENTO DE PRUEBA
@@ -27,6 +30,12 @@ def cargar_y_normalizar(ruta_archivo):
 def guardar_audio(ruta_salida, data, fs):
     """Guarda la senal procesada en un archivo .wav."""
     sf.write(ruta_salida, data, fs)
+
+
+def reproducir_audio(data, fs):
+    """Reproduce un audio usando sounddevice."""
+    sd.stop()
+    sd.play(data, fs)
 
 
 def evaluar_efecto(original, procesado, fs, nombre_efecto, tiempo_ms):
@@ -50,7 +59,6 @@ def evaluar_efecto(original, procesado, fs, nombre_efecto, tiempo_ms):
     ax2.set_title(f"Espectrograma con {nombre_efecto}")
     ax2.set_ylabel("Frecuencia [Hz]")
     ax2.set_xlabel("Tiempo [s]")
-    Audio(procesado,rate=fs)
     plt.tight_layout()
     plt.show()
 
@@ -73,7 +81,7 @@ def crear_interfaz():
 
     ventana = tk.Tk()
     ventana.title("VoiceLab - Efectos de voz")
-    ventana.geometry("430x310")
+    ventana.geometry("430x350")
     ventana.resizable(False, False)
 
     ruta_var = tk.StringVar(value=ruta_entrada)
@@ -122,6 +130,14 @@ def crear_interfaz():
 
         evaluar_efecto(audio_original, audio_procesado, fs, nombre_del_efecto, tiempo_ejecucion_ms)
 
+    def reproducir_audio_interfaz():
+        if audio_procesado is None:
+            messagebox.showwarning("Aviso", "Primero aplica un efecto.")
+            return
+
+        reproducir_audio(audio_procesado, fs)
+        estado_var.set("Reproduciendo audio procesado...")
+
     def guardar_audio_interfaz():
         if audio_procesado is None:
             messagebox.showwarning("Aviso", "Primero aplica un efecto.")
@@ -148,6 +164,13 @@ def crear_interfaz():
     ttk.Button(ventana, text="Aplicar efecto", command=aplicar_efecto_interfaz).pack(
         fill="x", padx=20, pady=(16, 6)
     )
+
+    ttk.Button(
+        ventana,
+        text="Reproducir audio modificado",
+        command=reproducir_audio_interfaz
+    ).pack(fill="x", padx=20, pady=(0, 6))
+
     ttk.Button(ventana, text="Guardar audio modificado", command=guardar_audio_interfaz).pack(
         fill="x", padx=20
     )
