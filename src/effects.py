@@ -144,35 +144,25 @@ def AlvinVocoder(signal, Fs=None, pitch_factor=1.5, n_fft=1024, hop_length=256):
     return np.clip(output, -1.0, 1.0).astype(np.float32)
 
 
-def reverb(signal, Fs, delay, decay):
+def reverb(signal_in, Fs, delay, decay):
     """
-    Añade un efecto de reverberación a la señal
-
-    Parametros
-    ----------
-    signal : array_like
-        Señal de entrada
-    Fs : num
-        Frecuencia de muestreo de la señal
-    Delay:
-        Ajuste del delay de la señal
-    Decay
-        Ajuste del decay del delay de la señal
-
-    Returns
-    -------
-    arr : ndarray
-        Señal con el efecto aplicado
+    Añade un efecto de reverberación a la señal usando un filtro IIR.
+    Optimizado vectorialmente mediante scipy.signal.lfilter para reducir
+    drásticamente el coste computacional frente a un bucle 'for' nativo.
     """
-
     delay_samples = int(delay * Fs)
-
-    y = np.copy(signal).astype(np.float32)
-
-    for i in range(delay_samples, len(signal)):
-        y[i] += decay * y[i - delay_samples]
-
-    return y
+    
+    # Coeficientes del filtro IIR (Comb Filter)
+    b = np.zeros(delay_samples + 1, dtype=np.float32)
+    b[0] = 1.0  
+    
+    a = np.zeros(delay_samples + 1, dtype=np.float32)
+    a[0] = 1.0
+    a[-1] = -decay 
+    
+    # lfilter aplica la ecuación en diferencias instantáneamente
+    y = lfilter(b, a, signal_in)
+    return y.astype(np.float32)
 
 def Alvin(signal, speedup=1.5):
     """ Implementa un efecto "estilo Alvin y las ardillas modificando la cantidad de muestras de la señal

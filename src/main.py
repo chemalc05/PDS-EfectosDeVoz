@@ -7,6 +7,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import effects
+import os
 
 try:
     import sounddevice as sd
@@ -127,9 +128,8 @@ def reproducir_audio(data, fs):
 def evaluar_efecto(original, procesado, fs, nombre_efecto, tiempo_ms):
     """
     Genera la evaluacion cuantitativa y visual exigida por el profesor.
-    Muestra espectrogramas y tiempo de ejecucion.
+    Muestra espectrogramas, tiempo de ejecucion y GUARDA la imagen.
     """
-    # [Requisito 1.5.3]: Evaluacion y Salida
     print(f"\n--- Analisis de: {nombre_efecto} ---")
     print(f"Coste computacional: {tiempo_ms:.2f} ms")
 
@@ -147,6 +147,13 @@ def evaluar_efecto(original, procesado, fs, nombre_efecto, tiempo_ms):
     ax2.set_xlabel("Tiempo [s]")
 
     plt.tight_layout()
+    
+    # NUEVO: Guardado automático para la memoria
+    os.makedirs("reportes", exist_ok=True)
+    nombre_archivo = f"reportes/espectrograma_{nombre_efecto.replace(' ', '_')}.png"
+    plt.savefig(nombre_archivo, dpi=300)
+    print(f"Gráfica guardada en: {nombre_archivo}")
+    
     plt.show()
 
 
