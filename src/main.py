@@ -440,7 +440,7 @@ def crear_interfaz():
     contenedor = ttk.Frame(ventana, padding=18)
     contenedor.pack(fill="both", expand=True)
 
-    ttk.Label(contenedor, text="VoiceLab", style="Title.TLabel").pack(anchor="w")
+    ttk.Label(contenedor, text="EfectosDeVoz", style="Title.TLabel").pack(anchor="w")
     ttk.Label(
         contenedor,
         text="Efectos de voz en archivo y microfono",
