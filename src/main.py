@@ -519,7 +519,6 @@ def crear_interfaz():
             if os.path.exists(rutas["diferencia"]):
 
                 img3_original = tk.PhotoImage(file=rutas["diferencia"])
-
                 img3 = img3_original.subsample(7, 7)
 
                 label_diferencia.configure(image=img3)
@@ -668,6 +667,19 @@ def crear_interfaz():
             estado_var.set("Reproduciendo audio procesado...")
         except Exception as error:
             messagebox.showerror("Error", f"No se pudo reproducir el audio:\n{error}")
+
+    
+    def reproducir_original_interfaz():
+        if audio_original is None:
+            messagebox.showwarning("Aviso", "Primero carga un audio.")
+            return
+
+        try:
+            reproducir_audio(audio_original, fs)
+            estado_var.set("Reproduciendo audio original...")
+        except Exception as error:
+            messagebox.showerror("Error", f"No se pudo reproducir el audio:\n{error}")
+
 
     def guardar_audio_interfaz():
         if audio_procesado is None:
@@ -918,12 +930,21 @@ def crear_interfaz():
         command=aplicar_efecto_interfaz,
         style="Primary.TButton",
     ).pack(side="left", fill="x", expand=True, padx=(0, 4))
+
     ttk.Button(
         frame_acciones,
-        text="Reproducir",
+        text="Reproducir original",
+        command=reproducir_original_interfaz,
+        style="Primary.TButton",
+    ).pack(side="left", fill="x", expand=True, padx=4)
+
+    ttk.Button(
+        frame_acciones,
+        text="Reproducir procesado",
         command=reproducir_audio_interfaz,
         style="Primary.TButton",
     ).pack(side="left", fill="x", expand=True, padx=4)
+    
     ttk.Button(
         frame_acciones,
         text="Guardar",
