@@ -75,7 +75,7 @@ def crear_interfaz():
         "Robot": lambda audio, fs_audio: effects.robot(audio, fs_audio),
         "Eco": lambda audio, fs_audio: effects.eco(audio, fs_audio),
         "Alvin": lambda audio, fs_audio: effects.Alvin(audio),
-        "Distorsion": lambda audio, fs_audio: effects.distortion(audio),
+        "Distorsion": lambda audio, fs_audio: effects.distortion(audio,4,0.7),
         "Reverb": lambda audio, fs_audio: effects.reverb(audio, fs_audio, delay=0.04, decay=0.45),
     }
 
