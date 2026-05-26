@@ -8,6 +8,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import effects
 import os
+import glob
 
 try:
     import sounddevice as sd
@@ -420,7 +421,7 @@ def crear_interfaz():
 
     ventana = tk.Tk()
     ventana.title("Efectos de voz")
-    ventana.geometry("520x650")
+    ventana.geometry("1250x900")
     ventana.resizable(False, False)
 
     style = ttk.Style(ventana)
@@ -433,6 +434,185 @@ def crear_interfaz():
     efecto_var = tk.StringVar(value="Radio Antigua")
     estado_var = tk.StringVar(value="Carga un audio para empezar.")
     tiempo_var = tk.StringVar(value="Coste computacional: -")
+    
+    # =========================
+    # REPORTES
+    # =========================
+
+    def cargar_reportes_interfaz():
+
+        if "lista_reportes" not in locals():
+            return
+
+        lista_reportes.delete(0, tk.END)
+
+        archivos = glob.glob("reportes/metricas_*.txt")
+
+        archivos.sort(reverse=True)
+
+        for archivo in archivos:
+
+            lista_reportes.insert(
+                tk.END,
+                os.path.basename(archivo)
+            )
+
+    def mostrar_reporte(event=None):
+
+        seleccion = lista_reportes.curselection()
+
+        if not seleccion:
+            return
+
+        nombre_archivo = lista_reportes.get(seleccion[0])
+
+        ruta_txt = os.path.join("reportes", nombre_archivo)
+
+        try:
+
+            with open(ruta_txt, "r", encoding="utf-8") as archivo:
+                contenido = archivo.read()
+
+            texto_reporte.delete("1.0", tk.END)
+
+            texto_reporte.insert(tk.END, contenido)
+
+        except Exception as error:
+
+            messagebox.showerror(
+                "Error",
+                f"No se pudo abrir el reporte:\n{error}"
+            )
+
+            return
+
+        base = nombre_archivo.replace("metricas_", "").replace(".txt", "")
+
+        rutas = {
+            "espectrograma": f"reportes/espectrograma_{base}.png",
+            "centroide": f"reportes/centroide_{base}.png",
+            "diferencia": f"reportes/diferencia_espectral_{base}.png",
+        }
+
+        try:
+
+            if os.path.exists(rutas["espectrograma"]):
+
+                img1_original = tk.PhotoImage(file=rutas["espectrograma"])
+
+                img1 = img1_original.subsample(7, 7)
+
+                label_espectrograma.configure(image=img1)
+
+                label_espectrograma.image = img1
+
+            if os.path.exists(rutas["centroide"]):
+
+                img2_original = tk.PhotoImage(file=rutas["centroide"])
+
+                img2 = img2_original.subsample(7, 7)
+
+                label_centroide.configure(image=img2)
+
+                label_centroide.image = img2
+
+            if os.path.exists(rutas["diferencia"]):
+
+                img3_original = tk.PhotoImage(file=rutas["diferencia"])
+
+                img3 = img3_original.subsample(7, 7)
+
+                label_diferencia.configure(image=img3)
+
+                label_diferencia.image = img3
+
+        except Exception as error:
+
+            messagebox.showerror(
+                "Error",
+                f"No se pudieron cargar las imágenes:\n{error}"
+            )
+
+    def abrir_grafica(tipo):
+
+        seleccion = lista_reportes.curselection()
+
+        if not seleccion:
+
+            messagebox.showwarning(
+                "Aviso",
+                "Selecciona un reporte."
+            )
+
+            return
+
+        nombre_txt = lista_reportes.get(seleccion[0])
+
+        base = nombre_txt.replace("metricas_", "").replace(".txt", "")
+
+        ruta_imagen = f"reportes/{tipo}_{base}.png"
+
+        if not os.path.exists(ruta_imagen):
+
+            messagebox.showerror(
+                "Error",
+                "No existe la gráfica."
+            )
+
+            return
+
+        try:
+
+            os.startfile(ruta_imagen)
+
+        except AttributeError:
+
+            import subprocess
+
+            subprocess.call(["xdg-open", ruta_imagen])
+            
+    def mostrar_grafica(tipo):
+
+        seleccion = lista_reportes.curselection()
+
+        if not seleccion:
+
+            messagebox.showwarning(
+                "Aviso",
+                "Selecciona un reporte."
+            )
+
+            return
+
+        nombre_txt = lista_reportes.get(seleccion[0])
+
+        base = nombre_txt.replace("metricas_", "").replace(".txt", "")
+
+        ruta_imagen = f"reportes/{tipo}_{base}.png"
+
+        if not os.path.exists(ruta_imagen):
+
+            messagebox.showerror(
+                "Error",
+                "No existe la gráfica."
+            )
+
+            return
+
+        try:
+
+            imagen = tk.PhotoImage(file=ruta_imagen)
+
+            label_imagen.configure(image=imagen)
+
+            label_imagen.image = imagen
+
+        except Exception as error:
+
+            messagebox.showerror(
+                "Error",
+                f"No se pudo cargar la imagen:\n{error}"
+            )
 
     def cargar_audio_interfaz():
         nonlocal ruta_entrada, audio_original, audio_procesado, fs
@@ -476,6 +656,7 @@ def crear_interfaz():
         actualizar_visualizacion(audio_original, audio_procesado)
 
         evaluar_efecto(audio_original, audio_procesado, fs, nombre_del_efecto, tiempo_ejecucion_ms)
+        cargar_reportes_interfaz()
 
     def reproducir_audio_interfaz():
         if audio_procesado is None:
@@ -684,16 +865,22 @@ def crear_interfaz():
 
     contenedor = ttk.Frame(ventana, padding=18)
     contenedor.pack(fill="both", expand=True)
+    
+    panel_izquierdo = ttk.Frame(contenedor)
+    panel_izquierdo.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
-    ttk.Label(contenedor, text="EfectosDeVoz", style="Title.TLabel").pack(anchor="w")
+    panel_derecho = ttk.Frame(contenedor)
+    panel_derecho.pack(side="right", fill="both", expand=True)
+
+    ttk.Label(panel_izquierdo, text="EfectosDeVoz", style="Title.TLabel").pack(anchor="w")
     ttk.Label(
-        contenedor,
+        panel_izquierdo,
         text="Efectos de voz en archivo y microfono",
         style="Status.TLabel",
     ).pack(anchor="w", pady=(0, 12))
 
     frame_archivo = ttk.LabelFrame(
-        contenedor,
+        panel_izquierdo,
         text="Archivo",
         style="Section.TLabelframe",
     )
@@ -710,7 +897,7 @@ def crear_interfaz():
     ).pack(fill="x")
 
     frame_efecto = ttk.LabelFrame(
-        contenedor,
+        panel_izquierdo,
         text="Efecto",
         style="Section.TLabelframe",
     )
@@ -723,7 +910,7 @@ def crear_interfaz():
         state="readonly",
     ).pack(fill="x")
 
-    frame_acciones = ttk.Frame(contenedor)
+    frame_acciones = ttk.Frame(panel_izquierdo)
     frame_acciones.pack(fill="x", pady=(0, 10))
     ttk.Button(
         frame_acciones,
@@ -745,7 +932,7 @@ def crear_interfaz():
     ).pack(side="left", fill="x", expand=True, padx=(4, 0))
 
     frame_tiempo_real = ttk.LabelFrame(
-        contenedor,
+        panel_izquierdo,
         text="Tiempo real",
         style="Section.TLabelframe",
     )
@@ -767,7 +954,7 @@ def crear_interfaz():
     boton_detener_rt.state(["disabled"])
 
     frame_ondas = ttk.LabelFrame(
-        contenedor,
+        panel_izquierdo,
         text="Ondas",
         style="Section.TLabelframe",
     )
@@ -780,7 +967,121 @@ def crear_interfaz():
     )
     onda_canvas.pack(fill="x")
 
-    frame_estado = ttk.Frame(contenedor)
+    frame_estado = ttk.Frame(panel_izquierdo)
+    # =========================
+    # PANEL REPORTES
+    # =========================
+    
+    frame_reportes = ttk.LabelFrame(
+        panel_derecho,
+        text="Reportes",
+        style="Section.TLabelframe",
+    )
+
+    frame_reportes.pack(
+        fill="both",
+        expand=True,
+        pady=(0, 12)
+    )
+
+    # LISTA IZQUIERDA
+
+    frame_lista = ttk.Frame(frame_reportes)
+
+    frame_lista.pack(
+        side="left",
+        fill="y",
+        padx=(0, 10)
+    )
+
+    lista_reportes = tk.Listbox(
+        frame_lista,
+        width=32,
+        height=16
+    )
+
+    lista_reportes.pack(fill="y")
+
+    lista_reportes.bind(
+        "<<ListboxSelect>>",
+        mostrar_reporte
+    )
+
+    # TEXTO DERECHA
+
+    frame_texto = ttk.Frame(frame_reportes)
+    
+    notebook_reportes = ttk.Notebook(frame_texto)
+
+    notebook_reportes.pack(
+        fill="both",
+        expand=True
+    )
+
+    frame_texto.pack(
+        side="left",
+        fill="both",
+        expand=True
+    )
+
+    tab_texto = ttk.Frame(notebook_reportes)
+
+    notebook_reportes.add(
+        tab_texto,
+        text="Reporte"
+    )
+
+    texto_reporte = tk.Text(
+        tab_texto,
+        wrap="word"
+    )
+
+    texto_reporte.pack(
+        fill="both",
+        expand=True
+    )
+    tab_imagenes = ttk.Frame(notebook_reportes)
+
+    notebook_reportes.add(
+        tab_imagenes,
+        text="Graficas"
+    )
+
+    frame_imagenes = ttk.Frame(tab_imagenes)
+
+    frame_imagenes.pack(
+        fill="both",
+        expand=True,
+        pady=10
+    )
+
+    label_espectrograma = ttk.Label(
+        frame_imagenes,
+        anchor="center"
+    )
+    label_espectrograma.pack(pady=10)
+
+    label_centroide = ttk.Label(
+        frame_imagenes,
+        anchor="center"
+    )
+    label_centroide.pack(pady=10)
+
+    label_diferencia = ttk.Label(
+        frame_imagenes,
+        anchor="center"
+    )
+    label_diferencia.pack(pady=10)
+    label_imagen = ttk.Label(frame_texto)
+    label_imagen.pack(pady=10)
+
+    texto_reporte.pack(
+        fill="both",
+        expand=True
+    )
+
+    # BOTONES
+    
     frame_estado.pack(fill="x")
     ttk.Separator(frame_estado).pack(fill="x", pady=(0, 10))
     ttk.Label(frame_estado, textvariable=tiempo_var, style="Status.TLabel").pack(
@@ -793,7 +1094,10 @@ def crear_interfaz():
         style="Status.TLabel",
     ).pack(anchor="w", pady=(4, 0))
 
+    cargar_reportes_interfaz()
+
     dibujar_visualizacion()
+
     ventana.mainloop()
 
 
