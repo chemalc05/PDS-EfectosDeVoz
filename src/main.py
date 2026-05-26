@@ -125,6 +125,8 @@ def reproducir_audio(data, fs):
     sd.play(data, fs)
 
 
+import os
+
 def evaluar_efecto(original, procesado, fs, nombre_efecto, tiempo_ms):
     """
     Genera la evaluacion cuantitativa y visual exigida por el profesor.
@@ -135,27 +137,32 @@ def evaluar_efecto(original, procesado, fs, nombre_efecto, tiempo_ms):
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
+    # Aumentamos NFFT a 4096 para mayor resolucion frecuencial (poder ver bandas AM de 40Hz)
+    nfft_val = 4096
+    noverlap_val = 2048
+
     # Espectrograma senal original
-    ax1.specgram(original, Fs=fs, NFFT=1024, noverlap=512, cmap='viridis')
+    ax1.specgram(original, Fs=fs, NFFT=nfft_val, noverlap=noverlap_val, cmap='viridis')
     ax1.set_title("Espectrograma Original")
     ax1.set_ylabel("Frecuencia [Hz]")
+    ax1.set_ylim(0, 5000)  # ZOOM: Solo nos interesa el rango vocal hasta 5kHz
 
     # Espectrograma senal procesada
-    ax2.specgram(procesado, Fs=fs, NFFT=1024, noverlap=512, cmap='viridis')
-    ax2.set_title(f"Espectrograma con {nombre_efecto}")
+    ax2.specgram(procesado, Fs=fs, NFFT=nfft_val, noverlap=noverlap_val, cmap='viridis')
+    ax2.set_title(f"Espectrograma con {nombre_efecto} (Coste: {tiempo_ms:.2f} ms)")
     ax2.set_ylabel("Frecuencia [Hz]")
     ax2.set_xlabel("Tiempo [s]")
+    ax2.set_ylim(0, 5000)  # ZOOM: Solo nos interesa el rango vocal hasta 5kHz
 
     plt.tight_layout()
     
-    # NUEVO: Guardado automático para la memoria
+    # Guardado automático
     os.makedirs("reportes", exist_ok=True)
     nombre_archivo = f"reportes/espectrograma_{nombre_efecto.replace(' ', '_')}.png"
     plt.savefig(nombre_archivo, dpi=300)
     print(f"Gráfica guardada en: {nombre_archivo}")
     
     plt.show()
-
 
 def crear_interfaz():
     ruta_entrada = "audio/audio.wav"
