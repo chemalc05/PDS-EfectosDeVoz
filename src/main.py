@@ -124,7 +124,6 @@ def reproducir_audio(data, fs):
     sd.stop()
     sd.play(data, fs)
 
-
 import os
 
 def evaluar_efecto(original, procesado, fs, nombre_efecto, tiempo_ms):
@@ -189,7 +188,7 @@ def crear_interfaz():
     }
 
     ventana = tk.Tk()
-    ventana.title("VoiceLab - Efectos de voz")
+    ventana.title("Efectos de voz")
     ventana.geometry("520x650")
     ventana.resizable(False, False)
 
