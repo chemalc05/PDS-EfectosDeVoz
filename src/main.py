@@ -124,7 +124,196 @@ def reproducir_audio(data, fs):
     sd.stop()
     sd.play(data, fs)
 
-import os
+
+def nombre_reporte(nombre_efecto):
+    """Normaliza el nombre del efecto para usarlo en archivos de reporte."""
+    return nombre_efecto.replace(" ", "_")
+
+
+def igualar_longitud(original, procesado):
+    """Rellena con ceros la senal mas corta para comparar ambas en el tiempo."""
+    longitud = max(len(original), len(procesado))
+    original_cmp = np.zeros(longitud, dtype=np.float32)
+    procesado_cmp = np.zeros(longitud, dtype=np.float32)
+    original_cmp[:len(original)] = original
+    procesado_cmp[:len(procesado)] = procesado
+    return original_cmp, procesado_cmp
+
+
+def calcular_mse(original, procesado):
+    """Calcula el Error Cuadratico Medio entre original y procesado."""
+    original_cmp, procesado_cmp = igualar_longitud(original, procesado)
+    return float(np.mean((original_cmp - procesado_cmp) ** 2))
+
+
+def calcular_snr(original, procesado):
+    """Calcula SNR tomando la diferencia procesado-original como error."""
+    original_cmp, procesado_cmp = igualar_longitud(original, procesado)
+    error = procesado_cmp - original_cmp
+    potencia_senal = np.mean(original_cmp ** 2)
+    potencia_error = np.mean(error ** 2)
+
+    if potencia_error <= 1e-12:
+        return float("inf")
+
+    return float(10 * np.log10((potencia_senal + 1e-12) / potencia_error))
+
+
+def calcular_centroide_espectral(senal, fs, nfft=4096, noverlap=2048):
+    """Devuelve tiempo y centroide espectral de una senal."""
+    if len(senal) < 2:
+        return np.array([0.0]), np.array([0.0])
+
+    nperseg = min(nfft, len(senal))
+    noverlap = min(noverlap, nperseg - 1)
+    frecuencias, tiempos, magnitud = signal.spectrogram(
+        senal,
+        fs=fs,
+        window="hann",
+        nperseg=nperseg,
+        noverlap=noverlap,
+        mode="magnitude",
+    )
+
+    energia = np.sum(magnitud, axis=0)
+    centroide = np.divide(
+        np.sum(frecuencias[:, None] * magnitud, axis=0),
+        energia,
+        out=np.zeros_like(energia),
+        where=energia > 1e-12,
+    )
+    return tiempos, centroide
+
+
+def calcular_espectro_medio_db(senal, fs, nfft=4096):
+    """Calcula un espectro medio en dB usando Welch."""
+    if len(senal) < 2:
+        return np.array([0.0]), np.array([0.0])
+
+    nperseg = min(nfft, len(senal))
+    frecuencias, psd = signal.welch(senal, fs=fs, window="hann", nperseg=nperseg)
+    espectro_db = 10 * np.log10(psd + 1e-12)
+    return frecuencias, espectro_db
+
+
+def guardar_grafica_centroides(original, procesado, fs, nombre_efecto, ruta_salida):
+    """Guarda la comparativa del centroide espectral."""
+    t_original, c_original = calcular_centroide_espectral(original, fs)
+    t_procesado, c_procesado = calcular_centroide_espectral(procesado, fs)
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(t_original, c_original, label="Original", linewidth=1.8)
+    ax.plot(t_procesado, c_procesado, label="Procesado", linewidth=1.8)
+    ax.set_title(f"Centroide espectral - {nombre_efecto}")
+    ax.set_xlabel("Tiempo [s]")
+    ax.set_ylabel("Frecuencia [Hz]")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    plt.tight_layout()
+    fig.savefig(ruta_salida, dpi=300)
+    plt.close(fig)
+
+    return {
+        "centroide_original_medio_hz": float(np.mean(c_original)),
+        "centroide_procesado_medio_hz": float(np.mean(c_procesado)),
+        "centroide_desplazamiento_hz": float(np.mean(c_procesado) - np.mean(c_original)),
+    }
+
+
+def guardar_grafica_diferencia_espectral(original, procesado, fs, nombre_efecto, ruta_salida):
+    """Guarda la diferencia espectral media procesado-original."""
+    frecuencias_original, espectro_original = calcular_espectro_medio_db(original, fs)
+    frecuencias_procesado, espectro_procesado = calcular_espectro_medio_db(procesado, fs)
+
+    espectro_original_interp = np.interp(
+        frecuencias_procesado,
+        frecuencias_original,
+        espectro_original,
+    )
+    diferencia_db = espectro_procesado - espectro_original_interp
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(frecuencias_procesado, diferencia_db, color="#7c3aed", linewidth=1.4)
+    ax.axhline(0, color="black", linewidth=0.8, alpha=0.6)
+    ax.set_title(f"Diferencia espectral - {nombre_efecto}")
+    ax.set_xlabel("Frecuencia [Hz]")
+    ax.set_ylabel("Procesado - Original [dB]")
+    ax.set_xlim(0, min(8000, fs / 2))
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    fig.savefig(ruta_salida, dpi=300)
+    plt.close(fig)
+
+    return {
+        "diferencia_espectral_media_db": float(np.mean(diferencia_db)),
+        "diferencia_espectral_max_db": float(np.max(diferencia_db)),
+        "diferencia_espectral_min_db": float(np.min(diferencia_db)),
+    }
+
+
+def guardar_reporte_metricas(nombre_efecto, rutas, metricas, tiempo_ms, fs):
+    """Guarda un resumen cuantitativo y una guia de audicion critica."""
+    ruta_txt = rutas["reporte_txt"]
+    ruta_csv = rutas["reporte_csv"]
+
+    snr_txt = "inf" if np.isinf(metricas["snr_db"]) else f"{metricas['snr_db']:.4f}"
+    contenido = [
+        f"Evaluacion del efecto: {nombre_efecto}",
+        f"Frecuencia de muestreo: {fs} Hz",
+        f"Coste computacional: {tiempo_ms:.2f} ms",
+        "",
+        "Metricas cuantitativas",
+        f"MSE: {metricas['mse']:.8f}",
+        f"SNR: {snr_txt} dB",
+        f"Centroide original medio: {metricas['centroide_original_medio_hz']:.2f} Hz",
+        f"Centroide procesado medio: {metricas['centroide_procesado_medio_hz']:.2f} Hz",
+        f"Desplazamiento del centroide: {metricas['centroide_desplazamiento_hz']:.2f} Hz",
+        f"Diferencia espectral media: {metricas['diferencia_espectral_media_db']:.2f} dB",
+        f"Diferencia espectral maxima: {metricas['diferencia_espectral_max_db']:.2f} dB",
+        f"Diferencia espectral minima: {metricas['diferencia_espectral_min_db']:.2f} dB",
+        "",
+        "Interpretacion orientativa",
+        "- MSE alto: el efecto modifica mas la forma temporal de la senal.",
+        "- SNR bajo: la diferencia frente al original es mayor.",
+        "- Centroide positivo: desplazamiento de energia hacia frecuencias mas agudas.",
+        "- Diferencia espectral positiva/negativa: bandas reforzadas o atenuadas.",
+        "",
+        "Audicion critica",
+        "- Contrastar si lo observado en espectrograma y diferencia espectral coincide con lo percibido.",
+        "- Anotar si aparecen artefactos, ruido, saturacion, perdida de inteligibilidad o coloracion excesiva.",
+        "- Valorar si el resultado cumple el objetivo creativo del efecto.",
+        "",
+        "Archivos generados",
+        f"- {rutas['espectrograma']}",
+        f"- {rutas['centroide']}",
+        f"- {rutas['diferencia_espectral']}",
+    ]
+
+    with open(ruta_txt, "w", encoding="utf-8") as archivo:
+        archivo.write("\n".join(contenido))
+
+    with open(ruta_csv, "w", encoding="utf-8") as archivo:
+        archivo.write("metrica,valor\n")
+        archivo.write(f"mse,{metricas['mse']:.8f}\n")
+        archivo.write(f"snr_db,{snr_txt}\n")
+        archivo.write(
+            f"centroide_original_medio_hz,{metricas['centroide_original_medio_hz']:.4f}\n"
+        )
+        archivo.write(
+            f"centroide_procesado_medio_hz,{metricas['centroide_procesado_medio_hz']:.4f}\n"
+        )
+        archivo.write(
+            f"centroide_desplazamiento_hz,{metricas['centroide_desplazamiento_hz']:.4f}\n"
+        )
+        archivo.write(
+            f"diferencia_espectral_media_db,{metricas['diferencia_espectral_media_db']:.4f}\n"
+        )
+        archivo.write(
+            f"diferencia_espectral_max_db,{metricas['diferencia_espectral_max_db']:.4f}\n"
+        )
+        archivo.write(
+            f"diferencia_espectral_min_db,{metricas['diferencia_espectral_min_db']:.4f}\n"
+        )
 
 def evaluar_efecto(original, procesado, fs, nombre_efecto, tiempo_ms):
     """
@@ -155,13 +344,54 @@ def evaluar_efecto(original, procesado, fs, nombre_efecto, tiempo_ms):
 
     plt.tight_layout()
     
-    # Guardado automático
+    # Guardado automatico
     os.makedirs("reportes", exist_ok=True)
-    nombre_archivo = f"reportes/espectrograma_{nombre_efecto.replace(' ', '_')}.png"
-    plt.savefig(nombre_archivo, dpi=300)
-    print(f"Gráfica guardada en: {nombre_archivo}")
+    nombre_archivo = nombre_reporte(nombre_efecto)
+    rutas = {
+        "espectrograma": f"reportes/espectrograma_{nombre_archivo}.png",
+        "centroide": f"reportes/centroide_{nombre_archivo}.png",
+        "diferencia_espectral": f"reportes/diferencia_espectral_{nombre_archivo}.png",
+        "reporte_txt": f"reportes/metricas_{nombre_archivo}.txt",
+        "reporte_csv": f"reportes/metricas_{nombre_archivo}.csv",
+    }
+    plt.savefig(rutas["espectrograma"], dpi=300)
+    print(f"Grafica guardada en: {rutas['espectrograma']}")
+
+    metricas = {
+        "mse": calcular_mse(original, procesado),
+        "snr_db": calcular_snr(original, procesado),
+    }
+    metricas.update(
+        guardar_grafica_centroides(
+            original,
+            procesado,
+            fs,
+            nombre_efecto,
+            rutas["centroide"],
+        )
+    )
+    metricas.update(
+        guardar_grafica_diferencia_espectral(
+            original,
+            procesado,
+            fs,
+            nombre_efecto,
+            rutas["diferencia_espectral"],
+        )
+    )
+    guardar_reporte_metricas(nombre_efecto, rutas, metricas, tiempo_ms, fs)
+
+    snr_txt = "inf" if np.isinf(metricas["snr_db"]) else f"{metricas['snr_db']:.2f}"
+    print(f"MSE: {metricas['mse']:.8f}")
+    print(f"SNR: {snr_txt} dB")
+    print(
+        "Centroide medio: "
+        f"{metricas['centroide_original_medio_hz']:.2f} Hz -> "
+        f"{metricas['centroide_procesado_medio_hz']:.2f} Hz"
+    )
+    print(f"Reporte guardado en: {rutas['reporte_txt']}")
     
-    plt.show()
+    plt.close(fig)
 
 def crear_interfaz():
     ruta_entrada = "audio/audio.wav"
@@ -177,6 +407,7 @@ def crear_interfaz():
         "original": np.zeros(1024, dtype=np.float32),
         "procesado": np.zeros(1024, dtype=np.float32),
     }
+    visualizacion_after_id = None
 
     efectos = {
         "Radio Antigua": lambda audio, fs_audio: effects.radio(audio, fs_audio),
@@ -304,14 +535,20 @@ def crear_interfaz():
             canvas.create_line(puntos, fill=color, width=2, smooth=True)
 
     def dibujar_visualizacion():
+        nonlocal visualizacion_after_id
+
         with visualizacion_lock:
             bloque_original = visualizacion["original"].copy()
             bloque_procesado = visualizacion["procesado"].copy()
 
-        ancho = max(onda_canvas.winfo_width(), 440)
-        alto = max(onda_canvas.winfo_height(), 160)
-        onda_canvas.delete("all")
-        onda_canvas.create_rectangle(0, 0, ancho, alto, fill="#f8fafc", outline="#cbd5e1")
+        try:
+            ancho = max(onda_canvas.winfo_width(), 440)
+            alto = max(onda_canvas.winfo_height(), 160)
+            onda_canvas.delete("all")
+            onda_canvas.create_rectangle(0, 0, ancho, alto, fill="#f8fafc", outline="#cbd5e1")
+        except tk.TclError:
+            visualizacion_after_id = None
+            return
 
         dibujar_canal(
             onda_canvas,
@@ -332,7 +569,7 @@ def crear_interfaz():
             ancho,
         )
 
-        ventana.after(50, dibujar_visualizacion)
+        visualizacion_after_id = ventana.after(50, dibujar_visualizacion)
 
     def obtener_fs_tiempo_real():
         if sd is None:
@@ -424,7 +661,15 @@ def crear_interfaz():
             estado_var.set("Grabacion finalizada sin muestras.")
 
     def cerrar_ventana():
-        nonlocal stream_tiempo_real
+        nonlocal stream_tiempo_real, visualizacion_after_id
+
+        if visualizacion_after_id is not None:
+            try:
+                ventana.after_cancel(visualizacion_after_id)
+            except tk.TclError:
+                pass
+            finally:
+                visualizacion_after_id = None
 
         if stream_tiempo_real is not None:
             try:
